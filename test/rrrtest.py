@@ -4,6 +4,12 @@ from raburetta import RabuRettaRound
 
 class RabuRettaRoundTests(unittest.TestCase):
 
+    @staticmethod
+    def start():
+        unittest.main(argv=['first-arg-is-ignored'], exit=False)
+        # Note: We are using sysargs so we need to hack
+        # unittest.main() a bit...
+
     def test_type(self):
         """Test if type is RabuRettaRound"""
 

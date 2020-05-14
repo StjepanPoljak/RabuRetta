@@ -1,16 +1,14 @@
 from raburetta import RabuRettaRound
 from test.rrrtest import RabuRettaRoundTests
 
-import unittest
 import sys
 
 if __name__ == "__main__":
 
     if len(sys.argv) >= 2:
+
         if sys.argv[1] == "test":
-            unittest.main(argv=['first-arg-is-ignored'], exit=False)
-            # Note: The unittest should be in a separate file,
-            # so we need to hack this a bit...
+            RabuRettaRoundTests.start()
 
         elif sys.argv[1] == "info":
             RabuRettaRound.print_info()
