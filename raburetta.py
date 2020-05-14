@@ -32,10 +32,32 @@ class Player():
         self.faceup = []
         self.type = type
 
-    def play(self, choose_f):
-        chosen_card = choose_f(self.hand)
-        self.faceup.append(chosen_card)
-        del chosen_card
+    def add_card_to_hand(self, card):
+
+        self.hand.append(card)
+
+        if self.hand_count() > 2:
+            raise Exception("Game logic error: too many cards in hand!")
+
+    def hand_count(self):
+
+        if not self.hand:
+            return 0
+
+        card_count = 0
+
+        for card in self.hand:
+            card_count += card.count
+
+        return card_count
+
+    def play_card(self, card):
+
+        if card not in self.hand:
+            raise Exception("Game logic error: card not in hand")
+
+        self.faceup.append(card)
+        self.hand.remove(card)
 
     def __hash__(self):
         return self.id
@@ -129,9 +151,19 @@ class RabuRettaRound():
 
         return to_remove
 
+    def get_player(self, player):
+
+        return self.player_data[player - 1]
+
     def get_card(self):
 
-        return self.pop(randint(0, len(self) - 1))
+        card = self.pop(randint(0, len(self) - 1))
+        card.count = 1
+
+        return card
+
+    def give_card_from_deck_to_player(self, player):
+        self.get_player(player).add_card_to_hand(self.get_card())
 
     def __delitem__(self, index):
         """remove card from the deck (del implementation)"""
@@ -187,5 +219,4 @@ class RabuRettaRound():
     def __del__(self):
         """Called when garbage collector calls destructor"""
         RabuRettaRound.rounds_played += 1
-
 

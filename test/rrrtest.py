@@ -1,4 +1,5 @@
 import unittest
+from random import randint
 from raburetta import RabuRettaRound
 
 class RabuRettaRoundTests(unittest.TestCase):
@@ -104,3 +105,22 @@ class RabuRettaRoundTests(unittest.TestCase):
                     self.assertEqual(item, rrr[-1])
                     break
 
+    def test_add_to_hand(self):
+
+        for num in range(2, 5):
+            rrr = RabuRettaRound(num)
+
+            curr_player = randint(1, num)
+
+            self.assertEqual(rrr.get_player(curr_player).hand_count(), 0)
+
+            rrr.give_card_from_deck_to_player(curr_player)
+
+            self.assertEqual(rrr.get_player(curr_player).hand_count(), 1)
+
+            rrr.give_card_from_deck_to_player(curr_player)
+
+            self.assertEqual(rrr.get_player(curr_player).hand_count(), 2)
+
+            with self.assertRaises(Exception):
+                rrr.give_card_from_deck_to_player(curr_player)
