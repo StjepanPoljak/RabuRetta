@@ -4,23 +4,36 @@ import socket
 import time
 import selectors
 import types
+from enum import Enum
 
 class RabuRettaServerSettings():
 
     def __init__(self):
         self.address = None
-        self.port = None
         self.timesleep = 60
         self.timetry = 5
+        self.buffer_size = None
+
+class RabuRettaUserPrivilege(Enum):
+    Admin = 1
+    Ordinary = 2
+
+class RabuRettaUser():
+
+    def __init__(self, addr, priv):
+        self.priv = priv
+        self.addr = addr
 
 class RabuRettaServer():
 
     def __init__(self, rrss):
         self.sel = selectors.DefaultSelector()
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.users = []
+        self.buffer_size = rrss.buffer_size
 
         attempt = rrss.timetry
-        sock_addr = (rrss.address, rrss.port)
+        sock_addr = rrss.address
 
         while True:
 
@@ -60,9 +73,20 @@ class RabuRettaServer():
             for key, mask in events:
 
                 if key.data is None:
-                    addr = accept_conn(self.sock)
+                    addr = self.accept_conn()
                 else:
-                    process_data(key, mask, addr)
+                    self.process_data(key, mask, addr)
+
+    def has_admin(self):
+
+        return False if len(
+            [ u for u in self.users
+                if u.priv == RabuRettaUserPrivilege.Admin
+            ]) == 0 else True
+
+    def get_port(self):
+
+        return self.sock.getsockname()[1]
 
     def accept_conn(self):
         conn, addr = self.sock.accept()
@@ -73,19 +97,27 @@ class RabuRettaServer():
                 str(addr)
                 )
 
-        sel.register(
+        self.sel.register(
                 conn,
                 selectors.EVENT_READ | selectors.EVENT_WRITE,
                 types.SimpleNamespace(addr=addr, inb=b'', outb=b'')
                 )
 
+        self.users.append(
+                RabuRettaUser(
+                    addr,
+                    RabuRettaUserPrivilege.Ordinary if self.has_admin()
+                    else RabuRettaUserPrivilege.Admin
+                    )
+                )
+
         return addr
 
-    def process_data(key, mask, addr):
+    def process_data(self, key, mask, addr):
         sock = key.fileobj
 
         if mask & selectors.EVENT_READ:
-            data = sock.recv(64)
+            data = sock.recv(self.buffer_size)
 
             if data:
                 print(
@@ -99,8 +131,13 @@ class RabuRettaServer():
                         "Closing connection to %s..." %
                         str(addr)
                         )
-                sel.unregister(sock)
+                self.sel.unregister(sock)
                 sock.close()
+
+                for user in self.users:
+                    if user.addr == addr:
+                        self.users.remove(user)
+                        break
 
         elif mask & selectors.EVENT_WRITE:
 

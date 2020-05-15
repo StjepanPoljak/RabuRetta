@@ -1,8 +1,12 @@
 from raburetta import RabuRettaRound
 from test.rrrtest import RabuRettaRoundTests
 from rrserver import RabuRettaServer, RabuRettaServerSettings
+from rrclient import RabuRettaClient, RabuRettaClientSettings
 
 import sys
+
+address = ("127.0.0.1", 12000)
+buffer_size = 1024
 
 if __name__ == "__main__":
 
@@ -16,12 +20,23 @@ if __name__ == "__main__":
 
         elif sys.argv[1] == "server":
             rrss = RabuRettaServerSettings()
-            rrss.address = '127.0.0.1'
-            rrss.port = 12000
+            rrss.address = address
+            rrss.buffer_size = buffer_size
 
             try:
                 RabuRettaServer(rrss)
 
+            except KeyboardInterrupt:
+                print("\nInterrupted by user...")
+
+        elif sys.argv[1] == "client":
+            rrcs = RabuRettaClientSettings()
+            rrcs.saddr = ("127.0.0.1", 12000)
+            rrcs.buffer_size = buffer_size
+
+            try:
+                rrc = RabuRettaClient(rrcs)
+                rrc.start_client()
             except KeyboardInterrupt:
                 print("\nInterrupted by user...")
 

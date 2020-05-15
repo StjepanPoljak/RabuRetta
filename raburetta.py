@@ -24,16 +24,22 @@ class PlayerType(Enum):
     Human = 1
     AI = 2
 
+class PlayerStatus(Enum):
+    InGame = 1
+    Win = 2
+    Loss = 3
+
 class Player():
 
-    def __init__(self, id, type=PlayerType.Human):
+    def __init__(self, id, age=0, type=PlayerType.Human):
         self.id = id
         self.hand = []
         self.faceup = []
         self.type = type
+        self.age = age
+        self.status = PlayerStatus.Playing
 
     def add_card_to_hand(self, card):
-
         self.hand.append(card)
 
         if self.hand_count() > 2:
@@ -60,6 +66,7 @@ class Player():
         self.hand.remove(card)
 
     def __hash__(self):
+
         return self.id
 
 # Note: str() is used to create output for end-user,
@@ -156,7 +163,6 @@ class RabuRettaRound():
         return self.player_data[player - 1]
 
     def get_card(self):
-
         card = self.pop(randint(0, len(self) - 1))
         card.count = 1
 
@@ -164,6 +170,7 @@ class RabuRettaRound():
 
     def give_card_from_deck_to_player(self, player):
         self.get_player(player).add_card_to_hand(self.get_card())
+
 
     def __delitem__(self, index):
         """remove card from the deck (del implementation)"""
@@ -218,5 +225,6 @@ class RabuRettaRound():
 
     def __del__(self):
         """Called when garbage collector calls destructor"""
+
         RabuRettaRound.rounds_played += 1
 
