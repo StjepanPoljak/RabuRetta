@@ -5,8 +5,7 @@ from rrclient import RabuRettaClient, RabuRettaClientSettings
 
 import sys
 
-address = ("127.0.0.1", 12000)
-buffer_size = 1024
+buffer_size = 8
 
 if __name__ == "__main__":
 
@@ -19,6 +18,12 @@ if __name__ == "__main__":
             RabuRettaRound.print_info()
 
         elif sys.argv[1] == "server":
+
+            if len(sys.argv) < 3:
+                address = ("127.0.0.1", 0)
+            else:
+                address = (sys.argv[2], 0)
+
             rrss = RabuRettaServerSettings()
             rrss.address = address
             rrss.buffer_size = buffer_size
@@ -30,15 +35,21 @@ if __name__ == "__main__":
                 print("\nInterrupted by user...")
 
         elif sys.argv[1] == "client":
-            rrcs = RabuRettaClientSettings()
-            rrcs.saddr = ("127.0.0.1", 12000)
-            rrcs.buffer_size = buffer_size
 
-            try:
-                rrc = RabuRettaClient(rrcs)
-                rrc.start_client()
-            except KeyboardInterrupt:
-                print("\nInterrupted by user...")
+            if len(sys.argv) != 4:
+                print("Please specify address and port number.")
+
+            elif len(sys.argv) == 4:
+                rrcs = RabuRettaClientSettings()
+                rrcs.saddr = (sys.argv[2], int(sys.argv[3]))
+                rrcs.buffer_size = buffer_size
+
+                try:
+                    rrc = RabuRettaClient(rrcs)
+                    rrc.start_client()
+
+                except KeyboardInterrupt:
+                    print("\nInterrupted by user...")
 
         else:
             print(

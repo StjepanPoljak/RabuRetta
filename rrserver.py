@@ -5,6 +5,7 @@ import time
 import selectors
 import types
 from enum import Enum
+from rrcommon import *
 
 class RabuRettaServerSettings():
 
@@ -23,6 +24,7 @@ class RabuRettaUser():
     def __init__(self, addr, priv):
         self.priv = priv
         self.addr = addr
+        self.data_processor = RabuRettaDataProcessor()
 
 class RabuRettaServer():
 
@@ -39,6 +41,8 @@ class RabuRettaServer():
 
             try:
                 self.sock.bind(sock_addr)
+                if (sock_addr[1] == 0):
+                    sock_addr = (sock_addr[0], self.get_port())
 
             except OSError:
 
@@ -92,6 +96,15 @@ class RabuRettaServer():
         conn, addr = self.sock.accept()
         conn.setblocking(False)
 
+        greet_req = RabuRettaCommon.package(
+                RabuRettaServerRequest.create(
+                    "input",
+                    "Type in your name: ",
+                    "set_name",
+                    "string"
+                    )
+                )
+
         print(
                 "Accepted connection from: %s" %
                 str(addr)
@@ -100,7 +113,12 @@ class RabuRettaServer():
         self.sel.register(
                 conn,
                 selectors.EVENT_READ | selectors.EVENT_WRITE,
-                types.SimpleNamespace(addr=addr, inb=b'', outb=b'')
+                types.SimpleNamespace(
+                    user_id=len(self.users),
+                    addr=addr,
+                    inb=b'',
+                    outb=greet_req,
+                    )
                 )
 
         self.users.append(
@@ -113,6 +131,12 @@ class RabuRettaServer():
 
         return addr
 
+    def simple_print(self, addr, message):
+        print(
+                "Got message from %s: %s" %
+                (str(addr), message)
+                )
+
     def process_data(self, key, mask, addr):
         sock = key.fileobj
 
@@ -120,12 +144,11 @@ class RabuRettaServer():
             data = sock.recv(self.buffer_size)
 
             if data:
-                print(
-                        "Got message from %s: %s" %
-                        (str(addr), data.decode("utf-8"))
+                self.users[key.data.user_id].data_processor.add_data(
+                        data,
+                        lambda msg: self.simple_print(addr, msg),
+                        RabuRettaComm
                         )
-                key.data.outb += data
-
             else:
                 print(
                         "Closing connection to %s..." %
@@ -142,8 +165,8 @@ class RabuRettaServer():
         elif mask & selectors.EVENT_WRITE:
 
             if key.data.outb:
-                key.fileobj.send(b"OK")
-                key.data.outb = b""
+                sent_bytes = key.fileobj.send(key.data.outb)
+                key.data.outb = key.data.outb[sent_bytes:]
 
     def __del__(self):
         print("Closing socket...")
