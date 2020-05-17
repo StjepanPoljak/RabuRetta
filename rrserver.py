@@ -145,25 +145,47 @@ class RabuRettaServer():
     def process_request(self, addr, message):
 
         if message.comm in self.f_table:
-            f_data = self.f_table[message.comm]
-            if f_data[0](self, addr, message, *f_data[1]) == False:
+            try:
+                if self.f_table[message.comm](
+                        self,
+                        addr,
+                        *(el for el in message.data.split())
+                        ) == False:
+                    quit()
+
+            except TypeError as e:
+                self.server_error(
+                        addr,
+                        str(e)
+                        )
+
+        else:
+            self.server_error(
+                    addr,
+                    "Invalid command '%s'" % message.comm
+                    )
+
+    def server_error(self, addr, error_message):
+
+        if self.on_error:
+            if self.on_error(addr, error_message) == False:
                 quit()
 
         else:
-            error_message = "Invalid command '%s'" % message.comm
+            self.send_request(
+                    addr,
+                    "error",
+                    error_message,
+                    "retry"
+                    )
 
-            if self.on_error:
-                if self.on_error(addr, error_message) == False:
-                    quit()
+    def del_user(self, addr):
 
-            else:
-                self.send_request(
-                        addr,
-                        "error",
-                        error_message,
-                        "retry"
-                        )
+        if addr not in self.users:
 
+            return
+
+        del self.users[addr]
 
     def process_data(self, key, mask, addr):
         sock = key.fileobj

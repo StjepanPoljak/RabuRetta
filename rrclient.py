@@ -43,14 +43,28 @@ class RabuRettaClient():
                     user_input
                     )
             else:
-                self.send_comm(
-                    user_input,
-                    "string",
-                    ""
-                    )
+
+                scomm, sdata = (user_input, "")
+
+                try:
+                    scomm, sdata = user_input.split(" ", 1)
+
+                except ValueError:
+                    pass
+
+                finally:
+                    self.send_comm(
+                        scomm,
+                        "string",
+                        sdata
+                        )
 
         elif message.request == "output":
             print(message.message)
+
+        elif message.request == "kick":
+            print(message.message)
+            quit()
 
         elif message.request == "error":
             print("Server error: %s" % message.message)
@@ -60,7 +74,8 @@ class RabuRettaClient():
             else:
                 quit()
 
-        self.prev_message = message
+        if message.request != "error":
+            self.prev_message = message
 
     def start_client(self):
 
