@@ -8,6 +8,7 @@ class RabuRettaClientSettings():
     def __init__(self):
         self.saddr = None
         self.buffer_size = None
+        self.error_recover = None
 
 class RabuRettaClient():
 
@@ -17,6 +18,7 @@ class RabuRettaClient():
         self.data_processor = RabuRettaDataProcessor()
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.connect(self.saddr)
+        self.prev_message = None
 
     def wait_response(self):
 
@@ -34,10 +36,31 @@ class RabuRettaClient():
 
         if message.request == "input":
             user_input = input(message.message)
-            self.send_comm(
-                message.rcomm,
-                message.rdata_type,
-                user_input)
+            if message.rcomm:
+                self.send_comm(
+                    message.rcomm,
+                    "string",
+                    user_input
+                    )
+            else:
+                self.send_comm(
+                    user_input,
+                    "string",
+                    ""
+                    )
+
+        elif message.request == "output":
+            print(message.message)
+
+        elif message.request == "error":
+            print("Server error: %s" % message.message)
+
+            if message.rcomm == "retry" and self.prev_message is not None:
+                self.process_message(self.prev_message)
+            else:
+                quit()
+
+        self.prev_message = message
 
     def start_client(self):
 

@@ -14,25 +14,41 @@ class RabuRettaServerSettings():
         self.timesleep = 60
         self.timetry = 5
         self.buffer_size = None
+        self.f_table = {}
+        self.new_conn = None
+        self.on_error = None
 
 class RabuRettaUserPrivilege(Enum):
     Admin = 1
     Ordinary = 2
+    Unassigned = 3
 
 class RabuRettaUser():
 
-    def __init__(self, addr, priv):
-        self.priv = priv
+    def __init__(self, addr):
         self.addr = addr
         self.data_processor = RabuRettaDataProcessor()
+        self.outgoing = b""
+
+        self.priv = RabuRettaUserPrivilege.Unassigned
+        self.name = None
+        self.age = None
+
+    def __hash__(self):
+
+        return self.addr
 
 class RabuRettaServer():
 
     def __init__(self, rrss):
         self.sel = selectors.DefaultSelector()
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.users = []
+        self.users = {}
         self.buffer_size = rrss.buffer_size
+
+        self.f_table = rrss.f_table
+        self.new_conn = rrss.new_conn
+        self.on_error = rrss.on_error
 
         attempt = rrss.timetry
         sock_addr = rrss.address
@@ -84,7 +100,7 @@ class RabuRettaServer():
     def has_admin(self):
 
         return False if len(
-            [ u for u in self.users
+            [ u for u in self.users.values()
                 if u.priv == RabuRettaUserPrivilege.Admin
             ]) == 0 else True
 
@@ -92,50 +108,62 @@ class RabuRettaServer():
 
         return self.sock.getsockname()[1]
 
+    def send_request(self, addr, request, message, data):
+        self.users[addr].outgoing += RabuRettaCommon.package(
+                RabuRettaServerRequest.create(
+                    request,
+                    message,
+                    data
+                    )
+                )
+
     def accept_conn(self):
         conn, addr = self.sock.accept()
         conn.setblocking(False)
-
-        greet_req = RabuRettaCommon.package(
-                RabuRettaServerRequest.create(
-                    "input",
-                    "Type in your name: ",
-                    "set_name",
-                    "string"
-                    )
-                )
 
         print(
                 "Accepted connection from: %s" %
                 str(addr)
                 )
 
+        self.users[addr] = RabuRettaUser(addr)
+
         self.sel.register(
                 conn,
                 selectors.EVENT_READ | selectors.EVENT_WRITE,
                 types.SimpleNamespace(
-                    user_id=len(self.users),
-                    addr=addr,
                     inb=b'',
-                    outb=greet_req,
+                    outb=b''
                     )
                 )
 
-        self.users.append(
-                RabuRettaUser(
-                    addr,
-                    RabuRettaUserPrivilege.Ordinary if self.has_admin()
-                    else RabuRettaUserPrivilege.Admin
-                    )
-                )
+        if self.new_conn is not None:
+            self.new_conn(self, addr)
 
         return addr
 
-    def simple_print(self, addr, message):
-        print(
-                "Got message from %s: %s" %
-                (str(addr), message)
-                )
+    def process_request(self, addr, message):
+
+        if message.comm in self.f_table:
+            f_data = self.f_table[message.comm]
+            if f_data[0](self, addr, message, *f_data[1]) == False:
+                quit()
+
+        else:
+            error_message = "Invalid command '%s'" % message.comm
+
+            if self.on_error:
+                if self.on_error(addr, error_message) == False:
+                    quit()
+
+            else:
+                self.send_request(
+                        addr,
+                        "error",
+                        error_message,
+                        "retry"
+                        )
+
 
     def process_data(self, key, mask, addr):
         sock = key.fileobj
@@ -143,10 +171,10 @@ class RabuRettaServer():
         if mask & selectors.EVENT_READ:
             data = sock.recv(self.buffer_size)
 
-            if data:
-                self.users[key.data.user_id].data_processor.add_data(
+            if data and addr in self.users:
+                self.users[addr].data_processor.add_data(
                         data,
-                        lambda msg: self.simple_print(addr, msg),
+                        lambda msg: self.process_request(addr, msg),
                         RabuRettaComm
                         )
             else:
@@ -157,12 +185,14 @@ class RabuRettaServer():
                 self.sel.unregister(sock)
                 sock.close()
 
-                for user in self.users:
-                    if user.addr == addr:
-                        self.users.remove(user)
-                        break
+                if addr in self.users:
+                    del self.users[addr]
 
         elif mask & selectors.EVENT_WRITE:
+
+            if addr in self.users and self.users[addr].outgoing:
+                key.data.outb += self.users[addr].outgoing
+                self.users[addr].outgoing = b""
 
             if key.data.outb:
                 sent_bytes = key.fileobj.send(key.data.outb)

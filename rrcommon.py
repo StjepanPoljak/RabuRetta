@@ -73,7 +73,6 @@ class RabuRettaDataProcessor():
 
             while len(self.mqueue) > 0:
                 message = self.mqueue.pop(0)
-                print(str(message))
                 process_message(message)
 
 class RabuRettaComm():
@@ -125,14 +124,14 @@ class RabuRettaServerRequest():
     max_order = 128
 
     @classmethod
-    def create(cls, request, message, rcomm, rdata_type):
+    def create(cls, request, message, rcomm):
         order = RabuRettaServerRequest.order
         RabuRettaServerRequest.order += 1
 
         if RabuRettaServerRequest.order == RabuRettaServerRequest.max_order:
             RabuRettaServerRequest.order = 0
 
-        return cls(order, request, message, rcomm, rdata_type)
+        return cls(order, request, message, rcomm)
 
     def __repr__(self):
 
@@ -142,12 +141,11 @@ class RabuRettaServerRequest():
 
         return repr(self)
 
-    def __init__(self, order, request, message, rcomm, rdata_type):
+    def __init__(self, order, request, message, rcomm):
             self.order = order
             self.request = request
             self.message = message
             self.rcomm = rcomm
-            self.rdata_type = rdata_type
 
     def to_json(self):
 
@@ -162,6 +160,5 @@ class RabuRettaServerRequest():
                     "order",
                     "request",
                     "message",
-                    "rcomm",
-                    "rdata_type"
+                    "rcomm"
                     ]))

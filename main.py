@@ -2,6 +2,7 @@ from raburetta import RabuRettaRound
 from test.rrrtest import RabuRettaRoundTests
 from rrserver import RabuRettaServer, RabuRettaServerSettings
 from rrclient import RabuRettaClient, RabuRettaClientSettings
+from rrfunctions import RabuRettaFunctions
 
 import sys
 
@@ -19,6 +20,8 @@ if __name__ == "__main__":
 
         elif sys.argv[1] == "server":
 
+            rrf = RabuRettaFunctions()
+
             if len(sys.argv) < 3:
                 address = ("127.0.0.1", 0)
             else:
@@ -27,6 +30,8 @@ if __name__ == "__main__":
             rrss = RabuRettaServerSettings()
             rrss.address = address
             rrss.buffer_size = buffer_size
+            rrss.f_table = rrf.f_table
+            rrss.new_conn = rrf.new_conn
 
             try:
                 RabuRettaServer(rrss)
