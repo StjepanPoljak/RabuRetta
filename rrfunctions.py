@@ -60,7 +60,10 @@ class RabuRettaFunctions():
 
         if re.search("^[0-9]+$", age) is None:
 
-            self.minor_error(rrs, addr, "Please provide numerical value.")
+            self.minor_error(
+                    rrs,
+                    addr,
+                    "Please provide numerical value.")
 
             return True
 

@@ -29,14 +29,24 @@ class PlayerStatus(Enum):
     Win = 2
     Loss = 3
 
+class MoveResult():
+    """ Note: 'message' is sent to player privately, and 'inform' publicly """
+
+    def __init__(self, is_valid, status_updated, message=None, inform=None):
+        self.is_valid = is_valid
+        self.status_updated = status_updated
+        self.message = message
+        self.inform = inform
+
 class Player():
 
-    def __init__(self, id, age=0, type=PlayerType.Human):
+    def __init__(self, id, name=None, age=0, type=PlayerType.Human):
         self.id = id
+        self.name = name
+        self.age = age
+        self.type = type
         self.hand = []
         self.faceup = []
-        self.type = type
-        self.age = age
         self.status = PlayerStatus.Playing
 
     def add_card_to_hand(self, card):
@@ -47,23 +57,46 @@ class Player():
 
     def hand_count(self):
 
-        if not self.hand:
-            return 0
-
-        card_count = 0
-
-        for card in self.hand:
-            card_count += card.count
-
-        return card_count
+        return len(self.hand)
 
     def play_card(self, card):
 
         if card not in self.hand:
+
             raise Exception("Game logic error: card not in hand")
 
         self.faceup.append(card)
         self.hand.remove(card)
+
+    def get_hand(self):
+
+        if len(self.hand) > 1:
+
+            raise Exception("Game logic error: too many cards in hand")
+
+        return self.hand[0]
+
+    def is_protected(self):
+
+        if not self.faceup:
+
+            return False
+
+        if self.faceup[-1].name == "Handmaid":
+
+            return True
+
+        return False
+
+    def holds_card(self, card_name):
+
+        for card in self.hand:
+
+            if card.name == card_name:
+
+                return True
+
+        return False
 
     def __hash__(self):
 
@@ -171,6 +204,152 @@ class RabuRettaRound():
     def give_card_from_deck_to_player(self, player):
         self.get_player(player).add_card_to_hand(self.get_card())
 
+    def all_players_protected(self, except_player):
+
+        for player in self.players:
+
+            if player == except_player:
+
+                continue
+
+            if player.is_protected() == False:
+
+                return False
+
+        return True
+
+    def all_players_out(self, except_player):
+
+        for player in self.players:
+
+            if except_player == player:
+
+                continue
+
+            if player.status != PlayerStatus.Loss:
+
+                return False
+
+        return True
+
+    def get_player_by_name(self, name):
+
+        for player in self.players:
+
+            if player.name == name:
+
+                return player
+
+        raise Exception(
+            "No player named %s!" % name
+            )
+
+    def play_guard(self, player, target_player, guess):
+
+        if guess == "Guard":
+
+            return MoveResult(
+                    is_valid=False,
+                    status_updated=[],
+                    message="You cannot guess Guard!"
+                    )
+
+        if target_player.holds_card(guess) == True:
+
+            return MoveResult(
+                is_valid=True,
+                status_updated=[target_player],
+                message="You guessed correct!"
+                )
+
+        return MoveResult(
+            is_valid=true,
+            status_updated=[],
+            message="Your guess failed!"
+            )
+
+    def play_priest(self, player, target_player):
+
+        return MoveResult(
+            is_valid=True,
+            status_updated=[],
+            message="Player %s holds %s." % (
+                target_player,
+                target_player.get_hand()
+                )
+            )
+
+    def play_baron(self, player, target_player):
+
+        player_card = self.hand[0] \
+            if self.hand[0].name != "Baron" else self.hand[1]
+
+        if target_player.get_hand().value == player_card.value:
+
+            return MoveResult(
+                is_valid=True,
+                status_updated=[],
+                message="You both have %s." % player_card.name
+                )
+
+        winner = (target_player.get_hand(), target_player) \
+                if target_player.get_hand().value > player_card.value \
+                    else (player_card, player)
+
+        loser = (target_player.get_hand(), target_player) \
+                if target_player.get_hand().value < player_card.value \
+                    else (player_card, player)
+
+        move_message = "%s held by %s won over %s held by %s." % (
+                *winner, *loser)
+
+        return MoveResult(
+            is_valid=True,
+            status_updated=[loser],
+            message=move_message
+            )
+
+    def make_move(self, player, card, dict):
+
+        if (
+            card.name == "Guard" or card.name == "Priest"
+            or card.name == "Baron" or card.name == "Prince"
+            or card.name == "King"
+            ):
+
+            try:
+                target_player = self.get_player_by_name(
+                    dict["target_player"]
+                    )
+
+                if target_player.is_protected() == True:
+
+                    return MoveResult(
+                            is_valid=False,
+                            status_updated=[],
+                            message="Target player is protected by Handmaid!"
+                            )
+
+                if (
+                    self.all_players_protected(
+                        except_player=player) == False
+                    and player == target_player
+                    and card.name != "Prince"
+                    ):
+
+                    return MoveResult(
+                        is_valid=False,
+                        status_updated=[],
+                        message="Cannot target yourself!"
+                        )
+
+            except Exception as e:
+
+                return MoveResult(
+                        is_valid=False,
+                        status_updated=[],
+                        message=str(e)
+                        )
 
     def __delitem__(self, index):
         """remove card from the deck (del implementation)"""
