@@ -120,13 +120,13 @@ class RabuRettaRoundTests(unittest.TestCase):
 
             self.assertEqual(rrr.get_player(curr_player).hand_count(), 0)
 
-            rrr.give_card_from_deck_to_player(curr_player)
+            rrr.draw_card(rrr.get_player(curr_player))
 
             self.assertEqual(rrr.get_player(curr_player).hand_count(), 1)
 
-            rrr.give_card_from_deck_to_player(curr_player)
+            rrr.draw_card(rrr.get_player(curr_player))
 
             self.assertEqual(rrr.get_player(curr_player).hand_count(), 2)
 
             with self.assertRaises(Exception):
-                rrr.give_card_from_deck_to_player(curr_player)
+                rrr.draw_card(rrr.get_player(curr_player))

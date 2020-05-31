@@ -47,7 +47,7 @@ class Player():
         self.type = type
         self.hand = []
         self.faceup = []
-        self.status = PlayerStatus.Playing
+        self.status = PlayerStatus.InGame
 
     def add_card_to_hand(self, card):
         self.hand.append(card)
@@ -191,18 +191,18 @@ class RabuRettaRound():
 
         return to_remove
 
-    def get_player(self, player):
-
-        return self.player_data[player - 1]
-
     def get_card(self):
         card = self.pop(randint(0, len(self) - 1))
         card.count = 1
 
         return card
 
-    def give_card_from_deck_to_player(self, player):
-        self.get_player(player).add_card_to_hand(self.get_card())
+    def discard_and_draw(self, player):
+        player.play_card(player.hand[0])
+        self.draw_card(player_name)
+
+    def draw_card(self, player):
+        player.add_card_to_hand(self.get_card())
 
     def all_players_protected(self, except_player):
 
@@ -212,7 +212,7 @@ class RabuRettaRound():
 
                 continue
 
-            if player.is_protected() == False:
+            if player.is_protected() is False:
 
                 return False
 
@@ -232,9 +232,13 @@ class RabuRettaRound():
 
         return True
 
+    def get_player(self, id):
+
+        return self.player_data[id - 1]
+
     def get_player_by_name(self, name):
 
-        for player in self.players:
+        for player in self.player_data:
 
             if player.name == name:
 
@@ -254,18 +258,30 @@ class RabuRettaRound():
                     message="You cannot guess Guard!"
                     )
 
-        if target_player.holds_card(guess) == True:
+        if target_player.holds_card(guess) is True:
+
+            target_player.status = PlayerStatus.Loss
 
             return MoveResult(
                 is_valid=True,
                 status_updated=[target_player],
-                message="You guessed correct!"
+                message="You guessed correct!",
+                inform="%s has defeated %s by guessing his card (%s)" % (
+                    player.name,
+                    target_player.name,
+                    guess
+                    )
                 )
 
         return MoveResult(
             is_valid=true,
             status_updated=[],
-            message="Your guess failed!"
+            message="Your guess failed!",
+            inform="%s failed in his guess: %s does not hold %s" % (
+                player.name,
+                target_player.name,
+                guess
+                )
             )
 
     def play_priest(self, player, target_player):
@@ -289,7 +305,8 @@ class RabuRettaRound():
             return MoveResult(
                 is_valid=True,
                 status_updated=[],
-                message="You both have %s." % player_card.name
+                message="You both have %s." % player_card.name,
+                inform="Nobody won!"
                 )
 
         winner = (target_player.get_hand(), target_player) \
@@ -303,11 +320,46 @@ class RabuRettaRound():
         move_message = "%s held by %s won over %s held by %s." % (
                 *winner, *loser)
 
+        inform_message = "%s kicked %s out!" % (winner[1], loser[1])
+
+        loser[1].status = PlayerStatus.Loss
+
         return MoveResult(
             is_valid=True,
             status_updated=[loser],
-            message=move_message
+            message=move_message,
+            inform=inform_message
             )
+
+    def play_handmaid(self, player):
+
+        return MoveResult(
+                is_valid=True,
+                status_updated=[],
+                inform="%s is protected for this round!" % player.name
+                )
+
+    def play_prince(self, player, target_player):
+
+        target_player_was_defeated = False
+        end_status = []
+
+        if target_player.holds_hand("Princess") is True:
+            target_player.play_card(target_player.hand[0])
+            target_player.status = PlayerStatus.Loss
+            target_player_was_defeated = True
+        else:
+            self.discard_and_draw(target_player)
+
+        if target_player_was_defeated is True:
+            end_status = [target_player]
+
+        return MoveResult(
+                is_valid=True,
+                status_updated=end_status,
+                message=None,
+                inform="%s discarded %s" % (target_player, target_player.faceup[-1])
+                )
 
     def make_move(self, player, card, dict):
 
@@ -322,7 +374,7 @@ class RabuRettaRound():
                     dict["target_player"]
                     )
 
-                if target_player.is_protected() == True:
+                if target_player.is_protected() is True:
 
                     return MoveResult(
                             is_valid=False,
@@ -332,7 +384,7 @@ class RabuRettaRound():
 
                 if (
                     self.all_players_protected(
-                        except_player=player) == False
+                        except_player=player) is False
                     and player == target_player
                     and card.name != "Prince"
                     ):
