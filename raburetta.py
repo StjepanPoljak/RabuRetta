@@ -59,6 +59,39 @@ class Player():
 
         return len(self.hand)
 
+    def must_play_countess(self):
+
+        if self.hand_count() < 2:
+            raise Exception("Game logic error: not enough cards in hand!")
+
+        cards = [ card.name for card in self.hand ]
+
+        if "Countess" in cards:
+
+            if (
+                "Prince" in cards
+                or "King" in cards
+                ):
+
+                return True
+
+        return False
+
+    def play_card_by_name(self, card_name):
+
+        for card in self.hand:
+
+            if card == card_name:
+
+                self.play_card(self, card)
+
+    def switch_hand_with_player(self, target_player):
+        player_hand = self.get_hand()
+        target_player_hand = target_player.get_hand()
+
+        self.hand[0] = target_player_hand
+        target_player.hand[0] = target_player_hand
+
     def play_card(self, card):
 
         if card not in self.hand:
@@ -144,6 +177,18 @@ class RabuRettaRound():
                 self.faceup.append(self.pop(randint(0, len(self) - 1)))
 
         self.player_data = [ Player(id) for id in range(1, players + 1) ]
+
+        self.f_dict = {
+            "Guard" : self.play_guard,
+            "Priest" : self.play_priest,
+            "Baron" : self.play_baron,
+            "Handmaid" : self.play_handmaid,
+            "Prince" : self.play_prince,
+            "King" : self.play_king,
+            "Countess" : self.play_countess,
+            "Princess" : self.play_princess
+            }
+
 
     @staticmethod
     def print_info():
@@ -258,6 +303,8 @@ class RabuRettaRound():
                     message="You cannot guess Guard!"
                     )
 
+        player.play_card_by_name("Guard")
+
         if target_player.holds_card(guess) is True:
 
             target_player.status = PlayerStatus.Loss
@@ -286,6 +333,8 @@ class RabuRettaRound():
 
     def play_priest(self, player, target_player):
 
+        player.play_card_by_name("Priest")
+
         return MoveResult(
             is_valid=True,
             status_updated=[],
@@ -296,6 +345,8 @@ class RabuRettaRound():
             )
 
     def play_baron(self, player, target_player):
+
+        player.play_card_by_name("Baron")
 
         player_card = self.hand[0] \
             if self.hand[0].name != "Baron" else self.hand[1]
@@ -333,6 +384,8 @@ class RabuRettaRound():
 
     def play_handmaid(self, player):
 
+        player.play_card_by_name("Handmaid")
+
         return MoveResult(
                 is_valid=True,
                 status_updated=[],
@@ -340,6 +393,8 @@ class RabuRettaRound():
                 )
 
     def play_prince(self, player, target_player):
+
+        player.play_card_by_name("Prince")
 
         target_player_was_defeated = False
         end_status = []
@@ -357,11 +412,42 @@ class RabuRettaRound():
         return MoveResult(
                 is_valid=True,
                 status_updated=end_status,
-                message=None,
-                inform="%s discarded %s" % (target_player, target_player.faceup[-1])
+                inform="%s discarded %s" % (
+                    target_player, target_player.faceup[-1]
+                    )
                 )
 
-    def make_move(self, player, card, dict):
+    def play_king(self, player, target_player):
+        player.play_card_by_name("King")
+        player.switch_hand_with_player(target_player)
+
+        return MoveResult(
+                is_valid=True,
+                status_updated=[],
+                inform="%s played King and exchanged cards with %s" % (
+                    player, target_player
+                    )
+                )
+
+    def play_countess(self, player):
+        player.play_card_by_name("Countess")
+
+        return MoveResult(
+                is_valid=True,
+                status_updated=[],
+                inform="%s played Countess!" % player
+                )
+
+    def play_princess(self, player):
+        player.play_card_by_name("Princess")
+
+        return MoveResult(
+                is_valid=True,
+                status_updated=[player],
+                inform="%s played Princess" % player
+                )
+
+    def make_move(self, player, card, arg_tuple):
 
         if (
             card.name == "Guard" or card.name == "Priest"
@@ -370,17 +456,20 @@ class RabuRettaRound():
             ):
 
             try:
-                target_player = self.get_player_by_name(
-                    dict["target_player"]
-                    )
-
-                if target_player.is_protected() is True:
+                if (
+                    player.must_play_countess()
+                    and card.name != "Countess"
+                    ):
 
                     return MoveResult(
                             is_valid=False,
                             status_updated=[],
-                            message="Target player is protected by Handmaid!"
+                            message="You have to play Countess!"
                             )
+
+                target_player = self.get_player_by_name(
+                    dict["target_player"]
+                    )
 
                 if (
                     self.all_players_protected(
@@ -394,6 +483,16 @@ class RabuRettaRound():
                         status_updated=[],
                         message="Cannot target yourself!"
                         )
+
+                if target_player.is_protected() is True:
+
+                    return MoveResult(
+                            is_valid=False,
+                            status_updated=[],
+                            message="Target player is protected by Handmaid!"
+                            )
+
+                self.f_dict[card](player, *arg_tuple)
 
             except Exception as e:
 
